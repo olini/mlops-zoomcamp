@@ -1,3 +1,5 @@
 mlops-zoomcamp/
 data/
 models/
+02-experiment_tracking/artifacts
+02-experiment_tracking/mlruns
