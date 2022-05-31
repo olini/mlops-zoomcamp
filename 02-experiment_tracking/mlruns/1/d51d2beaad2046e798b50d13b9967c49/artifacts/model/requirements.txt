@@ -1,6 +1,0 @@
-mlflow
-pandas==1.4.2
-pkg-resources==0.0.0
-psutil==5.9.0
-scikit-learn==1.1.0
-xgboost==1.6.1
