@@ -12,6 +12,9 @@ import xgboost as xgb
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from hyperopt.pyll import scope
 
+from prefect import flow, task
+from prefect.task_runners import SequentialTaskRunner
+
 def create_trip_duration_column(df):
     # trip duration
     df["trip_duration"] = df.lpep_dropoff_datetime - df.lpep_pickup_datetime
@@ -30,8 +33,8 @@ def filter_duration(df):
 
     return df
 
-def prep_data_for_modelling(train_data_path = "../data/green_tripdata_2021-01.parquet",
-                            val_data_path = "../data/green_tripdata_2021-02.parquet"):
+@task
+def prep_data_for_modelling(train_data_path, val_data_path):
     df_train = pd.read_parquet(train_data_path)
     df_val = pd.read_parquet(val_data_path)
 
@@ -66,6 +69,7 @@ def prep_data_for_modelling(train_data_path = "../data/green_tripdata_2021-01.pa
 
     return X_train, X_val, y_train, y_val, dv
 
+@task
 def hyperparameters_opt(train_data, val_data, y_val):
     def objective(params):
         with mlflow.start_run():
@@ -106,6 +110,7 @@ def hyperparameters_opt(train_data, val_data, y_val):
 
     return
 
+@task
 def train_best_model(train_data, val_data, y_val, dv):
     with mlflow.start_run():
         best_params = {
@@ -143,11 +148,16 @@ def train_best_model(train_data, val_data, y_val, dv):
 
         mlflow.xgboost.log_model(booster, artifact_path = "models_mlflow")
 
-if __name__ == "__main__":
-    X_train, X_val, y_train, y_val, dv = prep_data_for_modelling()
-    print(X_train.shape)
-    print(X_val.shape)
+@flow(task_runner = SequentialTaskRunner())
+def main(train_data_path: str = "../data/green_tripdata_2021-01.parquet",
+         val_data_path: str = "../data/green_tripdata_2021-02.parquet"):
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_experiment("nyc-taxi-experiment")
+
+    X_train, X_val, y_train, y_val, dv = prep_data_for_modelling(train_data_path, val_data_path).result()
     train_data = xgb.DMatrix(X_train, label = y_train)
     val_data = xgb.DMatrix(X_val, label = y_val)
     hyperparameters_opt(train_data, val_data, y_val)
     train_best_model(train_data, val_data, y_val, dv)
+
+main()
