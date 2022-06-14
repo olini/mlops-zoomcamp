@@ -4,3 +4,6 @@ models/
 02-experiment_tracking/artifacts
 02-experiment_tracking/mlruns
 03-orchestration/mlruns
+03-orchestration/outputs
+03-orchestration/mlflow.db
+.prefect/
